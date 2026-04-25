@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  AreaChart, Area, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
 import { RefreshCw } from 'lucide-react'
 import { formatUSD } from '../utils/calculations'
@@ -23,6 +23,19 @@ const CustomTooltip = ({ active, payload, label }) => {
   return (
     <div className="bg-gray-900 border border-white/10 rounded-2xl px-4 py-3 shadow-2xl">
       <p className="text-gray-400 text-xs mb-1">{label}</p>
+      <p className={`font-bold text-base ${val >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+        {val >= 0 ? '+' : ''}{formatUSD(val)}
+      </p>
+    </div>
+  )
+}
+
+const CustomTooltipArea = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null
+  const val = payload[0]?.value
+  return (
+    <div className="bg-gray-900 border border-white/10 rounded-2xl px-4 py-3 shadow-2xl">
+      <p className="text-gray-400 text-xs mb-1">{label}</p>
       <p className="text-white font-bold text-base">{formatUSD(val)}</p>
     </div>
   )
@@ -30,6 +43,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function PortfolioChart({ history, loading, error, days, onChangeRange, onRefetch }) {
   const [hoveredValue, setHoveredValue] = useState(null)
+  const [chartMode, setChartMode] = useState('trend') // 'trend' | 'pnl'
 
   if (loading) {
     return (
@@ -87,10 +101,22 @@ export default function PortfolioChart({ history, loading, error, days, onChange
   const changePct = first > 0 ? (change / first) * 100 : 0
   const isProfit = change >= 0
 
-  const chartData = history.map((p) => ({
+  const trendData = history.map((p) => ({
     date: formatDate(p.date, days),
     value: p.value,
   }))
+
+  const pnlData = history.map((p, i) => {
+    const prev = history[i - 1]?.value ?? p.value
+    const delta = i === 0 ? 0 : p.value - prev
+    return {
+      date: formatDate(p.date, days),
+      delta,
+    }
+  }).slice(1) // skip first day (no prev)
+
+  const totalPnL = pnlData.reduce((s, d) => s + d.delta, 0)
+  const isPnlProfit = totalPnL >= 0
 
   const minVal = Math.min(...history.map((p) => p.value))
   const maxVal = Math.max(...history.map((p) => p.value))
@@ -101,71 +127,102 @@ export default function PortfolioChart({ history, loading, error, days, onChange
       <div className="flex items-start justify-between mb-2">
         <div>
           <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-2">포트폴리오 추이</h3>
-          <p className="text-3xl font-black text-white tracking-tight">{formatUSD(displayed)}</p>
-          <div className={`flex items-center gap-1.5 mt-1 text-sm font-semibold ${isProfit ? 'text-emerald-400' : 'text-red-400'}`}>
-            <span>{isProfit ? '▲' : '▼'}</span>
-            <span>{isProfit ? '+' : ''}{formatUSD(change)}</span>
-            <span className="text-gray-600">|</span>
-            <span>{isProfit ? '+' : ''}{changePct.toFixed(2)}%</span>
-            <span className="text-gray-600 font-normal text-xs">기간 대비</span>
-          </div>
+          {chartMode === 'trend' ? (
+            <>
+              <p className="text-3xl font-black text-white tracking-tight">{formatUSD(displayed)}</p>
+              <div className={`flex items-center gap-1.5 mt-1 text-sm font-semibold ${isProfit ? 'text-emerald-400' : 'text-red-400'}`}>
+                <span>{isProfit ? '▲' : '▼'}</span>
+                <span>{isProfit ? '+' : ''}{formatUSD(change)}</span>
+                <span className="text-gray-600">|</span>
+                <span>{isProfit ? '+' : ''}{changePct.toFixed(2)}%</span>
+                <span className="text-gray-600 font-normal text-xs">기간 대비</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className={`text-3xl font-black tracking-tight ${isPnlProfit ? 'text-emerald-400' : 'text-red-400'}`}>
+                {isPnlProfit ? '+' : ''}{formatUSD(totalPnL)}
+              </p>
+              <div className="flex items-center gap-1.5 mt-1 text-xs text-gray-500">
+                <span>기간 누적 손익</span>
+              </div>
+            </>
+          )}
         </div>
-        <div className="flex gap-1.5 mt-1">
-          {RANGES.map((r) => (
+        <div className="flex flex-col items-end gap-2">
+          {/* Mode toggle */}
+          <div className="flex bg-white/5 rounded-xl p-0.5 gap-0.5">
             <button
-              key={r.days}
-              onClick={() => onChangeRange(r.days)}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                days === r.days
-                  ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25'
-                  : 'bg-white/5 text-gray-500 hover:text-white hover:bg-white/10'
-              }`}
+              onClick={() => setChartMode('trend')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${chartMode === 'trend' ? 'bg-blue-500 text-white shadow' : 'text-gray-500 hover:text-white'}`}
             >
-              {r.label}
+              추이
             </button>
-          ))}
+            <button
+              onClick={() => setChartMode('pnl')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${chartMode === 'pnl' ? 'bg-blue-500 text-white shadow' : 'text-gray-500 hover:text-white'}`}
+            >
+              손익
+            </button>
+          </div>
+          {/* Range buttons */}
+          <div className="flex gap-1.5">
+            {RANGES.map((r) => (
+              <button
+                key={r.days}
+                onClick={() => onChangeRange(r.days)}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                  days === r.days
+                    ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25'
+                    : 'bg-white/5 text-gray-500 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       <div className="mt-5 -mx-2">
-        <ResponsiveContainer width="100%" height={180}>
-          <AreaChart
-            data={chartData}
-            onMouseMove={(e) => {
-              if (e.activePayload?.[0]) setHoveredValue(e.activePayload[0].value)
-            }}
-            onMouseLeave={() => setHoveredValue(null)}
-            margin={{ top: 5, right: 8, left: 8, bottom: 0 }}
-          >
-            <defs>
-              <linearGradient id="portfolioGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={isProfit ? '#3B82F6' : '#EF4444'} stopOpacity={0.35} />
-                <stop offset="85%" stopColor={isProfit ? '#3B82F6' : '#EF4444'} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <XAxis
-              dataKey="date"
-              tick={{ fill: '#4B5563', fontSize: 11 }}
-              tickLine={false}
-              axisLine={false}
-              interval="preserveStartEnd"
-            />
-            <YAxis
-              domain={[minVal - padding, maxVal + padding]}
-              hide
-            />
-            <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }} />
-            <Area
-              type="monotone"
-              dataKey="value"
-              stroke={isProfit ? '#3B82F6' : '#EF4444'}
-              strokeWidth={2.5}
-              fill="url(#portfolioGradient)"
-              dot={false}
-              activeDot={{ r: 4, fill: isProfit ? '#3B82F6' : '#EF4444', strokeWidth: 0 }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+        {chartMode === 'trend' ? (
+          <ResponsiveContainer width="100%" height={180}>
+            <AreaChart
+              data={trendData}
+              onMouseMove={(e) => {
+                if (e.activePayload?.[0]) setHoveredValue(e.activePayload[0].value)
+              }}
+              onMouseLeave={() => setHoveredValue(null)}
+              margin={{ top: 5, right: 8, left: 8, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id="portfolioGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={isProfit ? '#3B82F6' : '#EF4444'} stopOpacity={0.35} />
+                  <stop offset="85%" stopColor={isProfit ? '#3B82F6' : '#EF4444'} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="date" tick={{ fill: '#4B5563', fontSize: 11 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+              <YAxis domain={[minVal - padding, maxVal + padding]} hide />
+              <Tooltip content={<CustomTooltipArea />} cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }} />
+              <Area type="monotone" dataKey="value" stroke={isProfit ? '#3B82F6' : '#EF4444'} strokeWidth={2.5}
+                fill="url(#portfolioGradient)" dot={false} activeDot={{ r: 4, fill: isProfit ? '#3B82F6' : '#EF4444', strokeWidth: 0 }} />
+            </AreaChart>
+          </ResponsiveContainer>
+        ) : (
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={pnlData} margin={{ top: 5, right: 8, left: 8, bottom: 0 }}>
+              <XAxis dataKey="date" tick={{ fill: '#4B5563', fontSize: 11 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+              <YAxis hide />
+              <ReferenceLine y={0} stroke="rgba(255,255,255,0.1)" strokeWidth={1} />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+              <Bar dataKey="delta" radius={[3, 3, 0, 0]}>
+                {pnlData.map((entry, i) => (
+                  <Cell key={i} fill={entry.delta >= 0 ? '#10B981' : '#EF4444'} fillOpacity={0.85} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   )
