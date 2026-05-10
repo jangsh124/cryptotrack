@@ -76,7 +76,7 @@ export default function PortfolioChart({ history, loading, error, days, onChange
             ))}
           </div>
         </div>
-        <div className="h-40 flex flex-col items-center justify-center gap-3">
+        <div className="h-40 flex flex-col items-center justify-center gap-3 text-center px-4">
           {error ? (
             <>
               <p className="text-gray-600 text-sm">{error}</p>
@@ -87,7 +87,11 @@ export default function PortfolioChart({ history, loading, error, days, onChange
               )}
             </>
           ) : (
-            <p className="text-gray-600 text-sm">시세 데이터를 불러오는 중이에요...</p>
+            <>
+              <p className="text-2xl">📈</p>
+              <p className="text-gray-400 text-sm font-semibold">매일 자정(미국시간) 자산이 기록돼요</p>
+              <p className="text-gray-600 text-xs">데이터가 2일 이상 쌓이면 그래프가 나타나요</p>
+            </>
           )}
         </div>
       </div>
