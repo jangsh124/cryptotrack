@@ -3,7 +3,7 @@ import { Plus, LayoutGrid, List, Wallet, RefreshCw, LogOut, Cloud, CloudOff, Bar
 import { useAuth } from './context/AuthContext'
 import { useHoldings } from './hooks/useHoldings'
 import { useExchangePrices, getCurrency } from './hooks/useExchangePrices'
-import { usePortfolioHistory } from './hooks/usePortfolioHistory'
+import { usePortfolioSnapshots } from './hooks/usePortfolioSnapshots'
 import { calcPnL, toUSD } from './utils/calculations'
 import TotalValueCard from './components/TotalValueCard'
 import AllocationChart from './components/AllocationChart'
@@ -31,7 +31,7 @@ export default function App() {
     useExchangePrices(holdings)
 
   const { history: portfolioHistory, loading: historyLoading, error: historyError, refetch: refetchHistory } =
-    usePortfolioHistory(holdings, usdToKrw, chartDays)
+    usePortfolioSnapshots(user, totalValue, chartDays)
 
   const exchanges = useMemo(() => {
     const exs = [...new Set(holdings.map((h) => h.exchange))]

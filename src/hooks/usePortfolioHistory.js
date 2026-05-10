@@ -38,7 +38,7 @@ async function fetchHistoryWithRetry(symbol, days, retries = 2) {
   return []
 }
 
-export function usePortfolioHistory(holdings, usdToKrw, days = 30) {
+export function usePortfolioHistory(holdings, usdToKrw, days = 30, totalValue = 0) {
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -56,7 +56,7 @@ export function usePortfolioHistory(holdings, usdToKrw, days = 30) {
         try {
           const data = await fetchHistoryWithRetry(sym, days)
           if (data.length > 0) priceHistory[sym] = data
-          await sleep(400) // gentle delay between requests
+          await sleep(400)
         } catch {
           // skip this symbol
         }
@@ -92,6 +92,15 @@ export function usePortfolioHistory(holdings, usdToKrw, days = 30) {
         })
         return hasAnyHolding ? { ts, date: new Date(ts), value: totalUSD } : null
       }).filter(Boolean)
+
+      // 실제 현재 총액 기준으로 스케일링 (거래소별 가격 차이 보정)
+      if (portfolioPoints.length > 0 && totalValue > 0) {
+        const lastRaw = portfolioPoints[portfolioPoints.length - 1].value
+        if (lastRaw > 0) {
+          const scale = totalValue / lastRaw
+          portfolioPoints.forEach((p) => { p.value = p.value * scale })
+        }
+      }
 
       setHistory(portfolioPoints)
     } catch (e) {
