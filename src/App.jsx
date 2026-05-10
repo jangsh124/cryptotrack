@@ -30,19 +30,6 @@ export default function App() {
   const { exchangePrices, exchangeChanges, usdToKrw, loading, lastUpdated, errors, refetch, getPrice, getChange } =
     useExchangePrices(holdings)
 
-  const { history: portfolioHistory, loading: historyLoading, error: historyError, refetch: refetchHistory } =
-    usePortfolioSnapshots(user, totalValue, chartDays)
-
-  const exchanges = useMemo(() => {
-    const exs = [...new Set(holdings.map((h) => h.exchange))]
-    return ['전체', ...exs]
-  }, [holdings])
-
-  const filteredHoldings = useMemo(() =>
-    filterExchange === '전체' ? holdings : holdings.filter((h) => h.exchange === filterExchange),
-    [holdings, filterExchange]
-  )
-
   const { totalValue, totalInvested, totalPnL, totalPnLPct } = useMemo(() => {
     let tv = 0, ti = 0
     holdings.forEach((h) => {
@@ -55,6 +42,19 @@ export default function App() {
     const pnl = tv - ti
     return { totalValue: tv, totalInvested: ti, totalPnL: pnl, totalPnLPct: ti > 0 ? (pnl / ti) * 100 : 0 }
   }, [holdings, exchangePrices, usdToKrw])
+
+  const { history: portfolioHistory, loading: historyLoading, error: historyError, refetch: refetchHistory } =
+    usePortfolioSnapshots(user, totalValue, chartDays)
+
+  const exchanges = useMemo(() => {
+    const exs = [...new Set(holdings.map((h) => h.exchange))]
+    return ['전체', ...exs]
+  }, [holdings])
+
+  const filteredHoldings = useMemo(() =>
+    filterExchange === '전체' ? holdings : holdings.filter((h) => h.exchange === filterExchange),
+    [holdings, filterExchange]
+  )
 
   const allocationData = useMemo(() => {
     // Merge same coins across exchanges
