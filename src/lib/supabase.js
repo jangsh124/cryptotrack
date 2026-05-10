@@ -12,7 +12,20 @@ export const supabaseConfigured = isValid
 
 const noop = () => Promise.resolve({ data: null, error: null })
 const chain = () => {
-  const obj = { select: () => obj, eq: () => obj, maybeSingle: noop, upsert: noop }
+  const obj = {
+    select: () => obj,
+    eq: () => obj,
+    gte: () => obj,
+    lte: () => obj,
+    order: () => obj,
+    limit: () => obj,
+    single: noop,
+    maybeSingle: noop,
+    upsert: noop,
+    insert: noop,
+    update: noop,
+    delete: noop,
+  }
   return obj
 }
 
